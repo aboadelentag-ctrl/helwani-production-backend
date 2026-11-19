@@ -43,13 +43,16 @@ async function bootstrap() {
   console.log(`📚 Swagger docs on http://0.0.0.0:${port}/api/docs`);
 
   const expressApp = app.getHttpAdapter().getInstance();
-  const altPorts = [8080, 3000].filter((p) => p !== port);
-  for (const altPort of altPorts) {
-    try {
-      expressApp.listen(altPort, '0.0.0.0');
-    } catch {
-      // Safe fallback if port cannot be bound
-    }
+  const altPort = port === 8080 ? 3000 : 8080;
+  try {
+    const altServer = expressApp.listen(altPort, '0.0.0.0', () => {
+      console.log(`🚀 Also listening on http://0.0.0.0:${altPort}`);
+    });
+    altServer.on('error', (err: any) => {
+      console.log(`Note: Secondary port ${altPort} not active: ${err?.message || err}`);
+    });
+  } catch {
+    // Secondary port ignored if not allowed
   }
 }
 
