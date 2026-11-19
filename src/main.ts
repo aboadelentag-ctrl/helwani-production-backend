@@ -37,10 +37,20 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT || configService.get<number>('PORT', 3000);
+  const port = Number(process.env.PORT) || 3000;
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 Server running on http://0.0.0.0:${port}/api/v1`);
-  console.log(`📚 Swagger docs on http://localhost:${port}/api/docs`);
+  console.log(`📚 Swagger docs on http://0.0.0.0:${port}/api/docs`);
+
+  const expressApp = app.getHttpAdapter().getInstance();
+  const altPorts = [8080, 3000].filter((p) => p !== port);
+  for (const altPort of altPorts) {
+    try {
+      expressApp.listen(altPort, '0.0.0.0');
+    } catch {
+      // Safe fallback if port cannot be bound
+    }
+  }
 }
 
 bootstrap();
