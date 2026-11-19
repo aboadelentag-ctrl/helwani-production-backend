@@ -37,23 +37,10 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = Number(process.env.PORT) || 3000;
+  const port = process.env.PORT ? Number(process.env.PORT) : 8080;
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 Server running on http://0.0.0.0:${port}/api/v1`);
   console.log(`📚 Swagger docs on http://0.0.0.0:${port}/api/docs`);
-
-  const expressApp = app.getHttpAdapter().getInstance();
-  const altPort = port === 8080 ? 3000 : 8080;
-  try {
-    const altServer = expressApp.listen(altPort, '0.0.0.0', () => {
-      console.log(`🚀 Also listening on http://0.0.0.0:${altPort}`);
-    });
-    altServer.on('error', (err: any) => {
-      console.log(`Note: Secondary port ${altPort} not active: ${err?.message || err}`);
-    });
-  } catch {
-    // Secondary port ignored if not allowed
-  }
 }
 
 bootstrap();
