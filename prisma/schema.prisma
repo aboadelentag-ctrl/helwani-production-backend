@@ -1,0 +1,218 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Department {
+  id          Int         @id @default(autoincrement())
+  code        String      @unique @db.VarChar(20)
+  name        String      @db.VarChar(100)
+  nameEn      String?     @map("name_en") @db.VarChar(100)
+  description String?
+  isActive    Boolean?    @default(true) @map("is_active")
+  createdAt   DateTime?   @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime?   @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  equipment   Equipment[]
+  tasks       Task[]
+  users       User[]
+  workers     Worker[]
+
+  @@map("departments")
+}
+
+model Shift {
+  id         Int          @id @default(autoincrement())
+  code       String       @unique @db.VarChar(20)
+  name       String       @db.VarChar(50)
+  startTime  DateTime?    @map("start_time") @db.Time(6)
+  endTime    DateTime?    @map("end_time") @db.Time(6)
+  isActive   Boolean?     @default(true) @map("is_active")
+  createdAt  DateTime?    @default(now()) @map("created_at") @db.Timestamp(6)
+  attendance Attendance[]
+  dailyLogs  DailyLog[]
+
+  @@map("shifts")
+}
+
+model Worker {
+  id             Int               @id @default(autoincrement())
+  code           String            @unique @db.VarChar(20)
+  name           String            @db.VarChar(150)
+  departmentId   Int?              @map("department_id")
+  jobTitle       String?           @map("job_title") @db.VarChar(100)
+  hireDate       DateTime?         @map("hire_date") @db.Date
+  phone          String?           @db.VarChar(20)
+  status         String?           @default("active") @db.VarChar(20)
+  createdAt      DateTime?         @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime?         @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  attendance     Attendance[]
+  supervisedLogs DailyLog[]        @relation("SupervisorLogs")
+  dailyLogs      DailyLog[]        @relation("WorkerDailyLogs")
+  imageUploads   ImageAttachment[]
+  gradedBy       TaskGrade[]
+  user           User?
+  department     Department?       @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([departmentId], map: "idx_workers_department")
+  @@map("workers")
+}
+
+model Equipment {
+  id              Int              @id @default(autoincrement())
+  code            String           @unique @db.VarChar(20)
+  name            String           @db.VarChar(150)
+  departmentId    Int?             @map("department_id")
+  model           String?          @db.VarChar(100)
+  serialNumber    String?          @map("serial_number") @db.VarChar(100)
+  purchaseDate    DateTime?        @map("purchase_date") @db.Date
+  status          String?          @default("active") @db.VarChar(20)
+  notes           String?
+  createdAt       DateTime?        @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt       DateTime?        @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  dailyLogs       DailyLog[]
+  department      Department?      @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenanceLogs MaintenanceLog[]
+
+  @@index([departmentId], map: "idx_equipment_department")
+  @@map("equipment")
+}
+
+model Task {
+  id                  Int         @id @default(autoincrement())
+  code                String      @unique @db.VarChar(30)
+  name                String      @db.VarChar(200)
+  departmentId        Int?        @map("department_id")
+  expectedTimeMinutes Int?        @map("expected_time_minutes")
+  standardQuantity    Decimal?    @map("standard_quantity") @db.Decimal(10, 2)
+  unit                String?     @db.VarChar(20)
+  isActive            Boolean?    @default(true) @map("is_active")
+  createdAt           DateTime?   @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt           DateTime?   @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  dailyLogs           DailyLog[]
+  department          Department? @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([departmentId], map: "idx_tasks_department")
+  @@map("tasks")
+}
+
+model Attendance {
+  id             Int       @id @default(autoincrement())
+  workerId       Int?      @map("worker_id")
+  attendanceDate DateTime  @map("attendance_date") @db.Date
+  shiftId        Int?      @map("shift_id")
+  checkIn        DateTime? @map("check_in") @db.Timestamp(6)
+  checkOut       DateTime? @map("check_out") @db.Timestamp(6)
+  status         String?   @default("present") @db.VarChar(20)
+  notes          String?
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  shift          Shift?    @relation(fields: [shiftId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  worker         Worker?   @relation(fields: [workerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([workerId, attendanceDate, shiftId])
+  @@index([workerId, attendanceDate], map: "idx_attendance_worker_date")
+  @@map("attendance")
+}
+
+model DailyLog {
+  id               Int               @id @default(autoincrement())
+  logDate          DateTime          @map("log_date") @db.Date
+  shiftId          Int?              @map("shift_id")
+  workerId         Int?              @map("worker_id")
+  taskId           Int?              @map("task_id")
+  equipmentId      Int?              @map("equipment_id")
+  startTime        DateTime?         @map("start_time") @db.Timestamp(6)
+  endTime          DateTime?         @map("end_time") @db.Timestamp(6)
+  durationMinutes  Int?              @map("duration_minutes")
+  quantityProduced Decimal?          @map("quantity_produced") @db.Decimal(10, 2)
+  wasteQuantity    Decimal?          @default(0) @map("waste_quantity") @db.Decimal(10, 2)
+  wasteReason      String?           @map("waste_reason") @db.VarChar(200)
+  notes            String?
+  supervisorId     Int?              @map("supervisor_id")
+  status           String?           @default("completed") @db.VarChar(20)
+  createdAt        DateTime?         @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt        DateTime?         @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  equipment        Equipment?        @relation(fields: [equipmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  shift            Shift?            @relation(fields: [shiftId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supervisor       Worker?           @relation("SupervisorLogs", fields: [supervisorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  task             Task?             @relation(fields: [taskId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  worker           Worker?           @relation("WorkerDailyLogs", fields: [workerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  images           ImageAttachment[]
+  grades           TaskGrade?
+
+  @@index([logDate], map: "idx_daily_logs_date")
+  @@index([logDate, taskId], map: "idx_daily_logs_date_task")
+  @@index([shiftId], map: "idx_daily_logs_shift")
+  @@index([taskId], map: "idx_daily_logs_task")
+  @@index([workerId], map: "idx_daily_logs_worker")
+  @@map("daily_logs")
+}
+
+model TaskGrade {
+  id               Int       @id @default(autoincrement())
+  dailyLogId       Int?      @unique @map("daily_log_id")
+  qualityScore     Int       @default(0) @map("quality_score")
+  speedScore       Int       @default(0) @map("speed_score")
+  cleanlinessScore Int       @default(0) @map("cleanliness_score")
+  recipeScore      Int       @default(0) @map("recipe_score")
+  totalScore       Int?      @default(dbgenerated("(((quality_score + speed_score) + cleanliness_score) + recipe_score)")) @map("total_score")
+  gradedAt         DateTime? @default(now()) @map("graded_at") @db.Timestamp(6)
+  gradedById       Int?      @map("graded_by")
+  dailyLog         DailyLog? @relation(fields: [dailyLogId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  gradedBy         Worker?   @relation(fields: [gradedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("task_grades")
+}
+
+model ImageAttachment {
+  id           Int       @id @default(autoincrement())
+  dailyLogId   Int?      @map("daily_log_id")
+  imageUrl     String    @map("image_url") @db.VarChar(500)
+  imageType    String?   @map("image_type") @db.VarChar(50)
+  description  String?
+  uploadedAt   DateTime? @default(now()) @map("uploaded_at") @db.Timestamp(6)
+  uploadedById Int?      @map("uploaded_by")
+  dailyLog     DailyLog? @relation(fields: [dailyLogId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  uploadedBy   Worker?   @relation(fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([dailyLogId], map: "idx_image_attachments_log")
+  @@map("image_attachments")
+}
+
+model MaintenanceLog {
+  id          Int        @id @default(autoincrement())
+  equipmentId Int?       @map("equipment_id")
+  breakdownAt DateTime   @map("breakdown_at") @db.Timestamp(6)
+  fixedAt     DateTime?  @map("fixed_at") @db.Timestamp(6)
+  description String
+  cost        Decimal?   @db.Decimal(10, 2)
+  technician  String?    @db.VarChar(100)
+  createdAt   DateTime?  @default(now()) @map("created_at") @db.Timestamp(6)
+  equipment   Equipment? @relation(fields: [equipmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([equipmentId], map: "idx_maintenance_equipment")
+  @@map("maintenance_logs")
+}
+
+model User {
+  id           Int         @id @default(autoincrement())
+  username     String      @unique @db.VarChar(50)
+  passwordHash String      @map("password_hash") @db.VarChar(255)
+  fullName     String      @map("full_name") @db.VarChar(150)
+  email        String?     @unique @db.VarChar(100)
+  role         String      @default("supervisor") @db.VarChar(20)
+  departmentId Int?        @map("department_id")
+  workerId     Int?        @unique(map: "users_worker_id_unique") @map("worker_id")
+  isActive     Boolean?    @default(true) @map("is_active")
+  lastLogin    DateTime?   @map("last_login") @db.Timestamp(6)
+  createdAt    DateTime?   @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime?   @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  worker       Worker?     @relation(fields: [workerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("users")
+}
